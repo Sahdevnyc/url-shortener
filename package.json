@@ -1,0 +1,13 @@
+{
+  "name": "url-shortener",
+  "private": true,
+  "scripts": {
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "docs:pdf": "npx --yes md-to-pdf docs/GUIDE.md"
+  }
+}
