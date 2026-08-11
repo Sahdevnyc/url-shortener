@@ -1,10 +1,47 @@
 import { useState } from 'react';
 import { createShortUrl } from '../api/client';
 
+const EXPIRY_OPTIONS = [
+  { value: '', label: 'Never expires' },
+  { value: '1h', label: '1 hour' },
+  { value: '24h', label: '24 hours' },
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
+  { value: 'custom', label: 'Custom date and time' },
+];
+
+function toDateTimeLocalValue(date) {
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function getExpiryIso(expiryOption, customExpiresAt) {
+  if (!expiryOption) return undefined;
+
+  if (expiryOption === 'custom') {
+    return customExpiresAt ? new Date(customExpiresAt).toISOString() : undefined;
+  }
+
+  const expiresAt = new Date();
+  const amount = Number.parseInt(expiryOption, 10);
+  const unit = expiryOption.at(-1);
+
+  if (unit === 'h') {
+    expiresAt.setHours(expiresAt.getHours() + amount);
+  }
+
+  if (unit === 'd') {
+    expiresAt.setDate(expiresAt.getDate() + amount);
+  }
+
+  return expiresAt.toISOString();
+}
+
 export default function UrlForm() {
   const [longUrl, setLongUrl] = useState('');
   const [customAlias, setCustomAlias] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
+  const [expiryOption, setExpiryOption] = useState('');
+  const [customExpiresAt, setCustomExpiresAt] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,15 +55,20 @@ export default function UrlForm() {
     setLoading(true);
 
     try {
+      if (expiryOption === 'custom' && !customExpiresAt) {
+        throw new Error('Choose a custom expiry date and time, or select Never expires.');
+      }
+
       const data = await createShortUrl({
         long_url: longUrl,
         custom_alias: customAlias || undefined,
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+        expires_at: getExpiryIso(expiryOption, customExpiresAt),
       });
       setResult(data);
       setLongUrl('');
       setCustomAlias('');
-      setExpiresAt('');
+      setExpiryOption('');
+      setCustomExpiresAt('');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -82,16 +124,30 @@ export default function UrlForm() {
             <label htmlFor="expires">
               Expires <span className="optional">(optional)</span>
             </label>
-            <input
+            <select
               id="expires"
-              type="datetime-local"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              min={new Date().toISOString().slice(0, 16)}
+              value={expiryOption}
+              onChange={(e) => setExpiryOption(e.target.value)}
               aria-describedby="expires-help"
-            />
+            >
+              {EXPIRY_OPTIONS.map((option) => (
+                <option key={option.value || 'never'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {expiryOption === 'custom' && (
+              <input
+                className="custom-expiry-input"
+                type="datetime-local"
+                value={customExpiresAt}
+                onChange={(e) => setCustomExpiresAt(e.target.value)}
+                min={toDateTimeLocalValue(new Date())}
+                aria-label="Custom expiry date and time"
+              />
+            )}
             <p id="expires-help" className="field-help">
-              Leave blank to keep this link active. Times use your local timezone.
+              Pick a common expiry quickly, or leave it as never expires.
             </p>
           </div>
 

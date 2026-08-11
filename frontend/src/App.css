@@ -97,7 +97,8 @@ body {
   opacity: 0.7;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 0.75rem 1rem;
   background: var(--bg);
@@ -109,9 +110,18 @@ body {
   transition: border-color 0.2s;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.field select {
+  cursor: pointer;
+}
+
+.custom-expiry-input {
+  margin-top: 0.6rem;
 }
 
 .field-row {
