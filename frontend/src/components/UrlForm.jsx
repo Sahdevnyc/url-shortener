@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createShortUrl } from '../api/client';
+import { createShortUrl, deleteShortUrl } from '../api/client';
 
 const EXPIRY_OPTIONS = [
   { value: '', label: 'Never expires' },
@@ -46,6 +46,7 @@ export default function UrlForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -83,6 +84,30 @@ export default function UrlForm() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       setError('Could not copy the link. Please copy it manually.');
+    }
+  }
+
+  async function handleDelete() {
+    if (!result?.short_code || !result?.deletion_token) return;
+
+    const confirmed = window.confirm('Delete this short URL? This cannot be undone.');
+    if (!confirmed) return;
+
+    setError('');
+    setDeleting(true);
+
+    try {
+      await deleteShortUrl({
+        short_code: result.short_code,
+        deletion_token: result.deletion_token,
+      });
+
+      setResult(null);
+      setCopied(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -168,6 +193,9 @@ export default function UrlForm() {
             </a>
             <button onClick={handleCopy} className="copy-btn">
               {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button onClick={handleDelete} disabled={deleting} className="delete-btn">
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
           </div>
           <p className="result-meta">

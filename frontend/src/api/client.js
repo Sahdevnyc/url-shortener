@@ -15,3 +15,16 @@ export async function createShortUrl({ long_url, custom_alias, expires_at }) {
   if (!res.ok) throw new Error(data.error || 'Failed to shorten URL');
   return data;
 }
+
+export async function deleteShortUrl({ short_code, deletion_token }) {
+  const res = await fetch(`${API_BASE}/urls/${short_code}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deletion_token }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Failed to delete URL');
+  }
+}

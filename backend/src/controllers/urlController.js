@@ -15,6 +15,7 @@ async function createShortUrl(req, res, next) {
       short_code: result.short_code,
       long_url: result.long_url,
       expires_at: result.expires_at,
+      deletion_token: result.deletion_token,
     });
   } catch (err) {
     if (err.code === '23505') {
@@ -44,4 +45,25 @@ async function redirectToLongUrl(req, res, next) {
   }
 }
 
-module.exports = { createShortUrl, redirectToLongUrl };
+async function deleteShortUrl(req, res, next) {
+  try {
+    const { shortCode } = req.params;
+    const { deletion_token } = req.body;
+
+    if (!deletion_token) {
+      return res.status(400).json({ error: 'Deletion token is required' });
+    }
+
+    const deleted = await urlService.deleteUrl(shortCode, deletion_token);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Short URL not found' });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { createShortUrl, redirectToLongUrl, deleteShortUrl };

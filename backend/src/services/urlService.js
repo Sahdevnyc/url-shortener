@@ -2,15 +2,20 @@ const pool = require('../config/database');
 const { getRedis } = require('../config/redis');
 const { encode } = require('../utils/base62');
 
+const DEFAULT_CACHE_TTL_SECONDS = 300;
 const CACHE_PREFIX = 'url:';
+
+const crypto = require('crypto');
 
 async function createUrl(longUrl, customAlias = null, expiresAt = null) {
   let result;
 
+  const deletionToken = crypto.randomBytes(24).toString('hex');
+
   if (customAlias) {
     const { rows } = await pool.query(
-      'INSERT INTO urls (short_code, long_url, expires_at) VALUES ($1, $2, $3) RETURNING short_code, long_url, expires_at',
-      [customAlias, longUrl, expiresAt]
+      'INSERT INTO urls (short_code, long_url, expires_at, deletion_token) VALUES ($1, $2, $3, $4) RETURNING short_code, long_url, expires_at, deletion_token',
+      [customAlias, longUrl, expiresAt, deletionToken]
     );
     result = rows[0];
   } else {
@@ -21,8 +26,8 @@ async function createUrl(longUrl, customAlias = null, expiresAt = null) {
 
       try {
         const { rows } = await pool.query(
-          'INSERT INTO urls (id, short_code, long_url, expires_at) VALUES ($1, $2, $3, $4) RETURNING short_code, long_url, expires_at',
-          [id, shortCode, longUrl, expiresAt]
+          'INSERT INTO urls (id, short_code, long_url, expires_at, deletion_token) VALUES ($1, $2, $3, $4, $5) RETURNING short_code, long_url, expires_at, deletion_token',
+          [id, shortCode, longUrl, expiresAt, deletionToken]
         );
         result = rows[0];
         break;
@@ -56,22 +61,58 @@ async function getUrl(shortCode) {
   return url;
 }
 
+async function deleteUrl(shortCode, deletionToken) {
+  const cacheKey = `${CACHE_PREFIX}${shortCode}`;
+
+  try {
+    const redis = getRedis();
+    if (redis.status === 'ready') {
+      await redis.del(cacheKey);
+    }
+  } catch (err) {
+    console.warn('Failed to delete URL from cache before DB delete:', err.message);
+  }
+
+  const { rowCount } = await pool.query(
+    'DELETE FROM urls WHERE short_code = $1 AND deletion_token = $2',
+    [shortCode, deletionToken]
+  );
+
+  if (rowCount === 0) return false;
+
+  try {
+    const redis = getRedis();
+    if (redis.status === 'ready') {
+      await redis.del(cacheKey);
+    }
+  } catch (err) {
+    console.warn('Failed to delete URL from cache after DB delete:', err.message);
+  }
+
+  return true;
+}
+
 async function cacheUrl({ short_code, long_url, expires_at }) {
   try {
     const redis = getRedis();
     if (redis.status !== 'ready') return;
 
     const value = JSON.stringify({ long_url, expires_at });
+    const cacheKey = `${CACHE_PREFIX}${short_code}`;
+
     if (expires_at) {
       const ttl = Math.floor((new Date(expires_at) - Date.now()) / 1000);
+
       if (ttl > 0) {
-        await redis.setex(`${CACHE_PREFIX}${short_code}`, ttl, value);
+        await redis.setex(cacheKey, Math.min(ttl, DEFAULT_CACHE_TTL_SECONDS), value);
       }
-    } else {
-      await redis.set(`${CACHE_PREFIX}${short_code}`, value);
+
+      return;
     }
-  } catch {
-    // Cache failures should not break the request
+
+    await redis.setex(cacheKey, DEFAULT_CACHE_TTL_SECONDS, value);
+  } catch (err) {
+    console.warn('Failed to cache URL:', err.message);
   }
 }
 
@@ -93,4 +134,4 @@ async function getFromCache(shortCode) {
   }
 }
 
-module.exports = { createUrl, getUrl };
+module.exports = { createUrl, getUrl, deleteUrl };
