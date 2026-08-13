@@ -51,6 +51,7 @@ A full-stack URL shortener built with the **PERN stack** (PostgreSQL, Express, R
 - **Redirect** — Visiting a short URL redirects to the original (301 permanent, 302 if expiring)
 - **Custom alias** — Optionally choose your own path (e.g. `sho.rt/1club`)
 - **Expiry** — Optionally set an expiration date; expired links return HTTP 410
+- **Deletion token** — Delete short URLs later with a token returned at creation time
 - **Uniqueness** — PostgreSQL unique constraint ensures no two links share the same code
 - **Caching** — Redis caches lookups for fast redirects; app works without Redis if unavailable
 
@@ -429,9 +430,12 @@ Content-Type: application/json
   "short_url": "http://localhost:5001/my-link",
   "short_code": "my-link",
   "long_url": "https://example.com/very/long/path",
-  "expires_at": "2027-01-01T00:00:00.000Z"
+  "expires_at": "2027-01-01T00:00:00.000Z",
+  "deletion_token": "2f8c7d..."
 }
 ```
+
+Store `deletion_token` securely. It is returned only when the short URL is created and is required to delete the short URL later.
 
 **Errors:**
 
@@ -452,6 +456,42 @@ curl -X POST http://localhost:5001/api/v1/urls \
 curl -X POST http://localhost:5001/api/v1/urls \
   -H "Content-Type: application/json" \
   -d '{"long_url": "https://google.com", "custom_alias": "1club"}'
+```
+
+### Delete short URL
+
+```http
+DELETE /api/v1/urls/:shortCode
+Content-Type: application/json
+```
+
+**Request body:**
+
+```json
+{
+  "deletion_token": "2f8c7d..."
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `deletion_token` | Yes | Token returned by the create short URL response |
+
+**Success — 204 No Content**
+
+**Errors:**
+
+| Status | Meaning |
+|--------|---------|
+| 400 | Deletion token is missing |
+| 404 | Short code was not found, or the deletion token does not match |
+
+**Example with curl:**
+
+```bash
+curl -X DELETE http://localhost:5001/api/v1/urls/1club \
+  -H "Content-Type: application/json" \
+  -d '{"deletion_token": "2f8c7d..."}'
 ```
 
 ### Redirect
@@ -617,6 +657,7 @@ CREATE TABLE urls (
     short_code    VARCHAR(20) NOT NULL UNIQUE,
     long_url      TEXT NOT NULL,
     expires_at    TIMESTAMPTZ,
+    deletion_token VARCHAR(64),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```

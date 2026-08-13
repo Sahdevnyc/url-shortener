@@ -28,6 +28,7 @@ PDF version: **[docs/GUIDE.pdf](docs/GUIDE.pdf)**
 - Shorten long URLs with auto-generated or custom aliases
 - HTTP redirect on visit (301/302)
 - Optional per-link expiry
+- Delete short URLs with a creation-time deletion token
 - Redis caching for fast redirects
 
 ## Tech Stack

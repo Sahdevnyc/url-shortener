@@ -34,7 +34,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api/v1/urls', createUrlLimiter);
+app.post('/api/v1/urls', createUrlLimiter);
 app.use('/api/v1', urlRoutes);
 
 app.get('/:shortCode', redirectToLongUrl);

@@ -64,15 +64,6 @@ async function getUrl(shortCode) {
 async function deleteUrl(shortCode, deletionToken) {
   const cacheKey = `${CACHE_PREFIX}${shortCode}`;
 
-  try {
-    const redis = getRedis();
-    if (redis.status === 'ready') {
-      await redis.del(cacheKey);
-    }
-  } catch (err) {
-    console.warn('Failed to delete URL from cache before DB delete:', err.message);
-  }
-
   const { rowCount } = await pool.query(
     'DELETE FROM urls WHERE short_code = $1 AND deletion_token = $2',
     [shortCode, deletionToken]
