@@ -37,7 +37,7 @@ function getExpiryIso(expiryOption, customExpiresAt) {
   return expiresAt.toISOString();
 }
 
-export default function UrlForm() {
+export default function UrlForm({ onCreated, onDeleted }) {
   const [longUrl, setLongUrl] = useState('');
   const [customAlias, setCustomAlias] = useState('');
   const [expiryOption, setExpiryOption] = useState('');
@@ -66,6 +66,7 @@ export default function UrlForm() {
         expires_at: getExpiryIso(expiryOption, customExpiresAt),
       });
       setResult(data);
+      onCreated?.(data);
       setLongUrl('');
       setCustomAlias('');
       setExpiryOption('');
@@ -102,6 +103,7 @@ export default function UrlForm() {
         deletion_token: result.deletion_token,
       });
 
+      onDeleted?.(result.short_code);
       setResult(null);
       setCopied(false);
     } catch (err) {
